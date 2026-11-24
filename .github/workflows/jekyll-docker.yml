@@ -18,3 +18,929 @@ jobs:
         docker run \
         -v ${{ github.workspace }}:/srv/jekyll -v ${{ github.workspace }}/_site:/srv/jekyll/_site \
         jekyll/builder:latest /bin/bash -c "chmod -R 777 /srv/jekyll && jekyll build --future"
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lucky Draw</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Orbitron:wght@600;700;800&display=swap');
+
+:root{
+  --pink:#ff2e88; --cyan:#22f0ff; --yellow:#ffd166; --orange:#ff9a3c; --violet:#b56cff; --txt-pink:#FF9FCB; --txt-violet:#D7BBFF; --txt-cyan:#9EF3FF; --txt-yellow:#FFE08A;
+  --ink:#F5FBFC; --muted:#CFE8EC; --panel:rgba(6,36,46,.86); --line:rgba(158,243,255,.5);
+}
+*{box-sizing:border-box}
+html{background:#0F4C5C;color-scheme:dark}
+body{margin:0;min-height:100vh;color-scheme:dark;font-family:'Open Sans',sans-serif;color:var(--ink);font-size:15px;line-height:1.4;
+  background:#0F4C5C;
+  position:relative;overflow-x:hidden}
+/* retro perspective grid floor */
+body::before{content:"";position:fixed;left:-50%;right:-50%;bottom:-10%;height:55vh;pointer-events:none;z-index:0;opacity:.6;
+  background-image:linear-gradient(rgba(34,240,255,.35) 1px,transparent 1px),linear-gradient(90deg,rgba(255,46,136,.35) 1px,transparent 1px);
+  background-size:60px 60px;transform:perspective(420px) rotateX(62deg);transform-origin:bottom;
+  -webkit-mask-image:linear-gradient(to top,#000 10%,transparent 90%);mask-image:linear-gradient(to top,#000 10%,transparent 90%)}
+/* scanlines */
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:200;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,0,0,.18) 3px,rgba(0,0,0,0) 4px);opacity:.5}
+
+/* Hero */
+.hero{position:relative;z-index:1;text-align:center;padding:26px 16px 6px}
+.hero h1{font-family:'Orbitron',sans-serif;font-weight:800;font-size:46px;letter-spacing:.08em;margin:0;color:#fff;
+  text-shadow:0 0 6px #fff,0 0 14px var(--pink),0 0 28px var(--pink),0 0 48px var(--pink)}
+.hero .sub{font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:.3em;color:var(--txt-cyan);text-shadow:0 0 8px var(--cyan);margin-top:10px;text-transform:uppercase}
+
+/* Layout */
+.layout{position:relative;z-index:1;display:grid;grid-template-columns:330px minmax(420px,1fr) 360px;gap:20px;padding:20px 28px;max-width:1400px;margin:0 auto;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0;
+  box-shadow:0 0 0 1px rgba(255,46,136,.15) inset,0 0 22px rgba(34,240,255,.18),0 10px 40px rgba(0,0,0,.45);backdrop-filter:blur(6px)}
+.winners-wrap{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:0 28px 28px}
+@media(max-width:1100px){.layout{grid-template-columns:1fr 1fr}.center{grid-column:1/-1;order:-1}}
+@media(max-width:700px){.layout{grid-template-columns:1fr;padding:12px}.winners-wrap{padding:0 12px 12px}.hero h1{font-size:30px}}
+
+h2{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;margin:0 0 4px;color:var(--txt-cyan);letter-spacing:.08em;text-transform:uppercase;text-shadow:0 0 8px rgba(34,240,255,.6)}
+.secondary{color:var(--muted)}
+.small{font-size:13px}
+
+/* Controls */
+.row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.row.end{justify-content:center}
+.row.between{justify-content:space-between}
+.row input{flex:1;min-width:0}
+input,textarea{font:inherit;font-size:14px;padding:9px 11px;border:1px solid rgba(34,240,255,.4);border-radius:8px;color:var(--ink);background:rgba(0,0,0,.3);width:100%;color-scheme:dark}
+input::placeholder,textarea::placeholder{color:#8a7aa8}
+input:focus,textarea:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 2px rgba(34,240,255,.3),0 0 14px rgba(34,240,255,.4)}
+textarea{resize:vertical}
+.btn{font:inherit;font-weight:700;font-size:13px;letter-spacing:.04em;padding:9px 14px;border-radius:8px;border:1px solid var(--cyan);cursor:pointer;background:transparent;color:var(--cyan);
+  text-shadow:0 0 6px rgba(34,240,255,.6);box-shadow:0 0 10px rgba(34,240,255,.25);transition:transform .1s,box-shadow .2s,background .2s}
+.btn:hover:not(:disabled){box-shadow:0 0 18px rgba(34,240,255,.6);background:rgba(34,240,255,.08)}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.btn.primary{border-color:transparent;color:#1a0020;text-shadow:none;background:linear-gradient(90deg,var(--pink),var(--orange));box-shadow:0 0 16px rgba(255,46,136,.6)}
+.btn.primary:hover:not(:disabled){background:linear-gradient(90deg,var(--orange),var(--pink));box-shadow:0 0 26px rgba(255,46,136,.9)}
+.btn.danger{border-color:var(--pink);color:var(--txt-pink);text-shadow:0 0 6px rgba(255,46,136,.6);box-shadow:0 0 10px rgba(255,46,136,.25)}
+.btn.danger:hover:not(:disabled){background:rgba(255,46,136,.1)}
+.btn.ghost{border-color:var(--violet);color:var(--txt-violet);text-shadow:none;box-shadow:0 0 10px rgba(181,108,255,.25)}
+.btn.big{width:100%;font-family:'Orbitron',sans-serif;font-size:18px;font-weight:800;padding:14px 20px;letter-spacing:.12em;text-transform:uppercase;margin-top:14px}
+details{margin-top:10px}
+summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)}
+details textarea{margin-top:8px}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 0}
+.stats div{background:rgba(0,0,0,.2);border:1px solid rgba(255,46,136,.35);border-radius:8px;padding:8px;text-align:center}
+.stats b{display:block;font-family:'Orbitron',sans-serif;font-size:20px;color:var(--txt-yellow);text-shadow:0 0 8px rgba(255,209,102,.6)}
+.stats span{font-size:12px;color:var(--muted)}
+
+/* Entries list */
+.list{list-style:none;margin:10px 0 0;padding:0;border:1px solid rgba(34,240,255,.3);border-radius:8px;max-height:320px;overflow:auto;background:rgba(0,0,0,.25)}
+.list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-size:14px}
+.list li:last-child{border-bottom:0}
+.list li .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list li.drawn .n{color:#9FB8BE;text-decoration:line-through}
+.list li.empty{justify-content:center;color:var(--muted)}
+.tag-drawn{font-size:11px;background:rgba(255,46,136,.2);color:var(--txt-pink);padding:1px 7px;border-radius:999px;margin-right:4px;border:1px solid rgba(255,46,136,.5)}
+.x{background:none;border:0;color:var(--txt-pink);font-size:20px;cursor:pointer;padding:0 4px;line-height:1;text-shadow:0 0 6px rgba(255,46,136,.7)}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:14px}
+
+/* Wheel */
+.center{text-align:center}
+.stage-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.window{position:relative;height:360px;overflow:hidden;border-radius:12px;background:rgba(0,0,0,.3);border:1px solid rgba(158,243,255,.5);margin-top:12px;
+  box-shadow:inset 0 0 40px rgba(255,46,136,.25),0 0 18px rgba(34,240,255,.25);
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22%,#000 78%,transparent 100%);
+          mask-image:linear-gradient(to bottom,transparent 0,#000 22%,#000 78%,transparent 100%)}
+.strip{position:absolute;top:0;left:0;right:0;will-change:transform}
+.item{height:72px;display:flex;align-items:center;justify-content:center;padding:0 22px;font-size:22px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item.target{color:#fff;font-weight:700;font-size:26px;text-shadow:0 0 8px var(--cyan),0 0 16px var(--cyan)}
+.window.spinning .item{filter:blur(.7px);color:var(--muted)}
+.focus{position:absolute;left:0;right:0;top:144px;height:72px;border-top:3px solid var(--pink);border-bottom:3px solid var(--pink);
+  background:linear-gradient(90deg,rgba(255,46,136,0),rgba(255,46,136,.25),rgba(255,46,136,0));box-shadow:0 0 18px rgba(255,46,136,.6);pointer-events:none;z-index:2}
+.window.won .focus{animation:pulse .7s ease-in-out 5}
+@keyframes pulse{0%,100%{box-shadow:0 0 18px rgba(255,46,136,.6)}50%{box-shadow:0 0 40px rgba(34,240,255,.9)}}
+.now{margin:14px 0 0;background:rgba(0,0,0,.3);border:1px dashed rgba(255,224,138,.6);border-radius:10px;padding:12px}
+.now .label{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--txt-yellow);font-weight:700}
+#nowPrize{font-weight:700;font-size:16px;color:#fff;margin-top:4px;display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap}
+.hint{font-size:13px;color:var(--muted);margin:10px 0 0}
+
+/* Tiers */
+.tier{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;display:inline-block;color:#1a0020;letter-spacing:.03em}
+.t-grand{background:var(--pink);color:#1a0020;box-shadow:0 0 12px rgba(255,46,136,.7)}
+.t-gold{background:var(--yellow);box-shadow:0 0 10px rgba(255,209,102,.6)}
+.t-silver{background:var(--cyan);box-shadow:0 0 10px rgba(34,240,255,.6)}
+.t-bronze{background:var(--orange);box-shadow:0 0 10px rgba(255,154,60,.6)}
+
+/* Prizes */
+.group-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--txt-violet);margin:16px 0 6px;text-shadow:0 0 6px rgba(181,108,255,.7)}
+.prize{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid rgba(158,243,255,.25);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;background:rgba(0,0,0,.18)}
+.prize:hover{border-color:var(--cyan);box-shadow:0 0 12px rgba(34,240,255,.3)}
+.prize.active{border:2px solid var(--pink);background:rgba(255,46,136,.12);padding:9px 11px;box-shadow:0 0 16px rgba(255,46,136,.45)}
+.prize.done{opacity:.4;cursor:not-allowed}
+.prize-name{font-weight:600;font-size:14px;color:#fff}
+.prize-meta{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* Winners table */
+.table-wrap{overflow:auto;margin-top:12px;border:1px solid rgba(34,240,255,.35);border-radius:8px;max-height:380px;background:rgba(0,0,0,.25)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{position:sticky;top:0;background:linear-gradient(90deg,#0A2E38,#14606F);color:#fff;text-align:left;font-family:'Orbitron',sans-serif;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:10px}
+td{padding:8px 10px;border-top:1px solid rgba(255,255,255,.07);vertical-align:top;color:var(--ink)}
+tr:nth-child(even) td{background:rgba(0,0,0,.14)}
+td b{color:var(--txt-yellow)}
+td .empty{padding:10px}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(5,0,15,.82);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.overlay[hidden]{display:none}
+.modal{background:linear-gradient(160deg,#0A2E38,#0F4C5C);border:2px solid var(--pink);border-radius:16px;padding:32px 28px;max-width:460px;width:100%;text-align:center;
+  box-shadow:0 0 40px rgba(255,46,136,.6),0 0 80px rgba(34,240,255,.25);animation:pop .35s ease-out}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+.kicker{font-family:'Orbitron',sans-serif;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--txt-cyan);font-weight:700;text-shadow:0 0 8px var(--cyan)}
+.winner{font-family:'Orbitron',sans-serif;font-size:32px;font-weight:800;color:#fff;margin:12px 0 8px;word-break:break-word;line-height:1.2;
+  text-shadow:0 0 6px #fff,0 0 16px var(--pink),0 0 30px var(--pink)}
+.won-prize{font-size:17px;color:var(--txt-yellow);font-weight:600}
+.modal .tier{margin-top:12px}
+.modal .btn{margin-top:20px}
+
+/* Confetti and toast */
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:120}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(140px);background:#06242E;color:var(--ink);border:1px solid var(--cyan);box-shadow:0 0 16px rgba(34,240,255,.5);
+  padding:12px 18px;border-radius:10px;font-size:14px;transition:transform .3s;z-index:150;max-width:90vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+<style>
+/* ── Tokens ─────────────────────────────────────────────────────────── */
+:root, :host {
+  /* Neutral */
+  --neutral-00: #ffffff;
+  --neutral-05: #f8f8f9;
+  --neutral-10: #f4f5f7;
+  --neutral-15: #eceff1;
+  --neutral-20: #dadee3;
+  --neutral-30: #b9bec4;
+  --neutral-40: #999fa5;
+  --neutral-50: #5e6469;
+  --neutral-60: #43484e;
+  --neutral-70: #2a2e33;
+  --neutral-80: #1e2227;
+  --neutral-90: #12171b;
+
+  /* Teal (primary accent) */
+  --teal-10: #e6f4f3;
+  --teal-20: #bfe4e1;
+  --teal-30: #8fd1cc;
+  --teal-40: #5fbeb6;
+  --teal-50: #2fab9f;
+  --teal-60: #239187;
+  --teal-70: #1a746c;
+
+  /* Purple */
+  --purple-10: #f2ecfb;
+  --purple-20: #d6c8f4;
+  --purple-30: #b79fec;
+  --purple-40: #9875e4;
+  --purple-50: #794cdc;
+  --purple-60: #613bc2;
+  --purple-70: #4b2c9c;
+
+  /* Blue */
+  --blue-10: #e8f1fd;
+  --blue-20: #c3dafb;
+  --blue-30: #9bc1f8;
+  --blue-40: #73a8f5;
+  --blue-50: #4b8ff2;
+  --blue-60: #3576d0;
+  --blue-70: #275ca4;
+
+  /* Success */
+  --success-10: #e6f6ec;
+  --success-20: #c2e8cf;
+  --success-30: #98d9b0;
+  --success-40: #6dca91;
+  --success-50: #42bb72;
+  --success-60: #32995d;
+
+  /* Warning */
+  --warning-10: #fff5e5;
+  --warning-20: #ffe3b8;
+  --warning-30: #ffd08a;
+  --warning-40: #ffbe5c;
+  --warning-50: #ffab2e;
+  --warning-60: #db8d24;
+
+  /* Error */
+  --error-10: #fdeaea;
+  --error-20: #f8c6c6;
+  --error-30: #f29f9f;
+  --error-40: #ec7878;
+  --error-50: #e65151;
+  --error-60: #bf3e3e;
+
+  /* Info */
+  --info-10: #e8f1fd;
+  --info-20: #c3dafb;
+  --info-30: #9bc1f8;
+  --info-40: #73a8f5;
+  --info-50: #4b8ff2;
+  --info-60: #3576d0;
+}
+
+/* ── Base reset & defaults ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 400;
+  color: var(--neutral-90);
+  background: var(--neutral-00);
+  padding: 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* ── Typography ─────────────────────────────────────────────────────── */
+h1, h2, h3 { font-weight: 800; color: var(--neutral-90); margin-top: 2rem; margin-bottom: 1rem; }
+h1 { font-size: 1.75rem; line-height: 1.3; }
+h2 { font-size: 1.5rem; line-height: 1.35; }
+h3 { font-size: 1.25rem; line-height: 1.4; }
+
+h4, h5, h6 { font-weight: 600; color: var(--neutral-90); margin-top: 1.5rem; margin-bottom: 0.75rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1.125rem; }
+h6 { font-size: 1rem; }
+
+p { margin-bottom: 1rem; }
+
+small, .text-sm { font-size: 0.875rem; }
+
+a { color: var(--teal-60); text-decoration: underline; }
+a:hover { color: var(--teal-70); }
+
+strong, b { font-weight: 600; }
+
+/* ── Lists ──────────────────────────────────────────────────────────── */
+ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+li { margin-bottom: 0.25rem; }
+li::marker { color: var(--neutral-40); }
+
+/* ── Tables ─────────────────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.875rem; }
+thead { background: var(--neutral-10); }
+th { font-weight: 600; text-align: left; padding: 0.75rem 1rem; border-bottom: 2px solid var(--neutral-20); color: var(--neutral-70); }
+td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--neutral-15); color: var(--neutral-90); }
+tbody tr:hover { background: var(--neutral-05); }
+
+/* ── Blockquote ─────────────────────────────────────────────────────── */
+blockquote {
+  border-left: 4px solid var(--teal-40);
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  background: var(--neutral-05);
+  color: var(--neutral-60);
+}
+
+/* ── Code ────────────────────────────────────────────────────────────── */
+code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.875em;
+  background: var(--neutral-10);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
+pre {
+  background: var(--neutral-10);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+pre code { background: none; padding: 0; }
+
+/* ── Horizontal rule ────────────────────────────────────────────────── */
+hr { border: none; border-top: 1px solid var(--neutral-20); margin: 2rem 0; }
+
+/* ── Utility classes ────────────────────────────────────────────────── */
+.label { font-weight: 600; color: var(--neutral-70); }
+.secondary { color: var(--neutral-60); }
+.accent { color: var(--teal-60); }
+.accent-bg { background: var(--teal-10); }
+
+.subtle-bg { background: var(--neutral-10); padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+.card {
+  background: var(--neutral-00);
+  border: 1px solid var(--neutral-20);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+
+/* Status badges */
+.badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge-success { background: var(--success-10); color: var(--success-60); }
+.badge-warning { background: var(--warning-10); color: var(--warning-60); }
+.badge-error   { background: var(--error-10);   color: var(--error-60); }
+.badge-info    { background: var(--info-10);    color: var(--info-60); }
+
+/* Semantic alert boxes */
+.alert {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+.alert-success { background: var(--success-10); border-left: 4px solid var(--success-50); color: var(--success-60); }
+.alert-warning { background: var(--warning-10); border-left: 4px solid var(--warning-50); color: var(--warning-60); }
+.alert-error   { background: var(--error-10);   border-left: 4px solid var(--error-50);   color: var(--error-60); }
+.alert-info    { background: var(--info-10);    border-left: 4px solid var(--info-50);    color: var(--info-60); }
+
+/* Grid helpers */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 1rem 0; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0; }
+
+/* Metric / KPI card */
+.metric { text-align: center; }
+.metric-value { font-size: 2rem; font-weight: 800; color: var(--teal-60); }
+.metric-label { font-size: 0.875rem; font-weight: 600; color: var(--neutral-60); }
+
+/* ── Inter font import ──────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+</style></head>
+<body>
+
+<div class="hero"><h1>LUCKY DRAW</h1><div class="sub">Neon Night &middot; Live Draw</div></div>
+
+<main class="layout">
+
+  <!-- 1. Entries -->
+  <section class="panel" aria-labelledby="entriesTitle">
+    <h2 id="entriesTitle">1. Entries</h2>
+    <p class="secondary small">Type a name and press Enter to add it, duplicates allowed. Pasted lists skip duplicates automatically.</p>
+    <div class="row">
+      <input id="nameInput" placeholder="Type a name and press Enter" maxlength="80" autocomplete="off">
+      <button class="btn primary" id="addBtn">Add</button>
+    </div>
+    <details>
+      <summary>Paste a list (one name per line)</summary>
+      <textarea id="bulk" rows="6" placeholder="Ali Ahmad&#10;Siti Aminah&#10;Tan Wei Ming"></textarea>
+      <div class="row"><button class="btn secondary" id="bulkBtn">Add all names</button></div>
+    </details>
+
+    <div class="stats">
+      <div><b id="statTotal">0</b><span>Total entries</span></div>
+      <div><b id="statPool">0</b><span>In the draw</span></div>
+      <div><b id="statDrawn">0</b><span>Drawn</span></div>
+    </div>
+
+    <div class="row"><input id="search" placeholder="Search entries" autocomplete="off"></div>
+    <ul class="list" id="entryList"></ul>
+
+    <div class="row">
+      <button class="btn danger" id="clearBtn">Clear all entries</button>
+      <button class="btn ghost" id="reloadBtn">Restore attendee list</button>
+    </div>
+  </section>
+
+  <!-- Wheel -->
+  <section class="panel center" aria-labelledby="wheelTitle">
+    <div class="stage-head">
+      <h2 id="wheelTitle">Vertical Wheel</h2>
+      <span class="secondary small" id="poolNote"></span>
+    </div>
+    <div class="window" id="window" aria-live="polite">
+      <div class="strip" id="strip"></div>
+      <div class="focus"></div>
+    </div>
+    <div class="now">
+      <div class="label">Now drawing</div>
+      <div id="nowPrize"></div>
+    </div>
+    <button class="btn primary big" id="spinBtn">Spin</button>
+    <p class="hint">Press Space to spin. Each drawn name is removed from the wheel.</p>
+    <div class="row end"><button class="btn danger" id="resetBtn">Reset draw</button></div>
+  </section>
+
+  <!-- 2. Prizes -->
+  <section class="panel" aria-labelledby="prizeTitle">
+    <div class="row between" style="margin-top:0">
+      <h2 id="prizeTitle">2. Prizes</h2>
+      <span class="secondary small" id="prizeSummary"></span>
+    </div>
+    <p class="secondary small">Click a prize to select it for the next spin.</p>
+    <div id="prizeList"></div>
+  </section>
+
+</main>
+
+<!-- Winners -->
+<div class="winners-wrap">
+  <section class="panel" aria-labelledby="winnersTitle">
+    <div class="row between" style="margin-top:0">
+      <h2 id="winnersTitle">Winners</h2>
+      <button class="btn secondary" id="csvBtn">Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Prize</th><th>Tier</th><th>Winner</th><th>Drawn at (MYT)</th></tr></thead>
+        <tbody id="winTable"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<!-- Winner modal -->
+<div class="overlay" id="overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="wKicker">
+    <div class="kicker" id="wKicker">Congratulations</div>
+    <div class="winner" id="wName"></div>
+    <div class="won-prize" id="wPrize"></div>
+    <span class="tier" id="wTier"></span>
+    <br>
+    <button class="btn primary" id="closeWin">Continue</button>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  const KEY = 'evoLuckyDrawV2';
+  const ATTENDEES = ["Fahmy Khawarizmy Zainan", "NurAlyaShazwaniMohdYazi", "Pansyi Sarkunam", "NurulhaziraRusdi", "Liek Chieng Yam", "MuhammadAmirulAfigRoseli", "NURULSABILLADANURI", "Muhammad Arif Bin Zainudin", "DharvinShah Kumar BinMohamad Shah Ravin", "Debra Tan", "Mohd Amirul AzreenBinAzmin", "ThelvinNairSubhash", "PremkanthRamGopalaKrishnan", "QistinaRukmanuddin", "Nurul Ajieerah Aqmal Binti Ghazali", "Sonia Rachel John", "Nur Azizah Sawi", "Syawal Fittry", "Wel WengSieh", "OsmanBinAli", "Hazel Tony", "SakthiyanthiranAlagaratnam", "Leng Joo Kok", "Vinnod Gunaseharan", "Zain Abbas Dogar", "Muhammad Zafri Zidan Bin Mohd Zamri", "Sharifah Nafisah Syed Nahar", "NurulAmaninaBintiAhmadFauzi", "Noor Shuhada Noor Hisham", "Kathleen Fernandez", "Kam Wei Yip", "Eu Wye Liew", "Ariff Jubley", "Hibatullah Haziq Abdul Hakim", "GraceYeeSianChen", "Chee Hong Ng", "Muhammad Ashraf Mazlan", "Meera Krishnan", "Nurul HamidahAbd Rahman", "Aidan Ai ThengChow", "Chin Yee Yong", "Saeed Shafi", "NurHanisBinti Mohamad Rafee", "Nor FaridahMohdShah", "Yuen Mei So", "Jessie Punn Eng Lim", "Jezreel JosephJoseph Licerio", "Bhawani Ramesh", "Darren Ignatius Nonis", "Yeei Lork Thong", "Caroline Thomas", "Zu Wei Liew", "NurulhidayahMuhamadnasir", "NoorSitiAishahBintiMohdSalleh", "NurDhaniaIrdinaZulAzizan", "TunkuRafhanahBinti TunkuIbrahim", "Omprakash Amarwal", "Anis Nabila", "NurAmaliaBinti Nozrimi Rostam", "NurulAtiqahHafidzMurshidi", "MuhammadAlifImranBinAbHamid", "Kelvin Ling Siaw Fwu", "Nur Atiqah Aisya Rosli", "Hor Yan Sin", "RianneKaMunTeo", "Nur Amira Aqasyah Rosmizan", "Pei Cheun Tong", "MohamadFaizBinSallahuddin", "Fong Jun Yang", "Wern Di", "SitiAishahZainal", "YudisthraanMSegar", "FatinNurNadiaAbuBakar", "Syadiah Madiha Borhan", "Kam Seng Low", "Yi Leng Lee", "Khaleda Amin AminKhalid", "Nicole", "Samuel ManHouYau", "Renizar Repinyi", "NaleenaManiSekar", "Farhood Yoosefilooyeh", "NaurahSofinaz", "Bonnie Boon", "NurHafizahMatassan", "DarshiniMenonSreedaranMenon", "Isa Lias", "DemetriaRineshaSamuel", "Noreen Ghazali", "PoornaBoda", "PeryadarshiniKrishnan", "Ashwini Rajoo", "Ming Chiang Wong", "Khairunnas Awang", "NurZafirahAbdulAziz", "Jasprit Jesbir Ghuman Singh", "NurulAinMohamadAli", "Pui Seen Chew", "Muhamad Noor Afiq Osman", "Jeyabalan Maripan", "NorfarhanahEsa", "Nurul IzzahIsmail", "Mohd Syahmi Akib", "MarshaFarissaBintiAhmadYusmadi", "Eu LynnFoo", "Krystina Kashweni Rayappan", "Nur NabilaBinti Rusman", "NoorZalikhaMohamad", "Alyssa Syahira Aznim", "Zahid Iqbal", "Kah Heng Liew", "Revathi Veluru", "Elie Danhash", "Yuen TungYoong", "AishahSyed", "RachelWibisana", "SharifahNurFarihinSaidAbdKarim", "LaurrenceClemen", "Wai Kit Koo", "Kabhilan Rajayah", "SharmeenAliaMohdKamal", "Kok Yong Lim", "SredaranSaksiDaran", "Jeiraj Tiayakarajan", "CheeChuanSia", "RoohollahAbbasiMazraehShahi", "NorfarahaniBinti Jusoh", "NorfatihahBintiRasuli", "NurAzalidahBinti Md Ali", "KartiganGunasekaran", "Shamini Sivaram", "MuhammadHafizBinMdNazri", "NoorzulfirahZulkiflee", "Jin Xien Saw", "JeniParam", "Mohamad AmirHafizi Maddiah", "Shell Lain Wong", "Santhiraiswaran C", "Chee Siong Wong", "Pui GeokEr", "SeraRahman", "WaiLekChan", "JynnWei Lee", "Kai Ren Chow", "Tack Fai Wong", "Samyuktha Mohan", "Aiman Shamsul Bahrin", "Avinaash Ganapathy Kuppusamy", "Theevagaraju Uthamarajoo", "NivasiniSambanthan", "Monisha Arud", "Wai Howe Khong", "Nur Syahirah Mohamad Rodzi", "MuhammadAhmed", "ElvinaFernandez", "SaravanaPatehayapan", "Annie Sam", "EsmaerleFrankie", "Ahmad AsyrafShaari", "Sathish Suppiah", "ShahrulAmeerul Zuraidy", "HasnidaBintiMamat", "Sim Yee Ng", "Yin Yinn Tan", "Hsiao Ying Lim", "Pick Kian Teo", "ThayalanLetchumanan", "Seetha DeviSubramany", "NurulHakimahAbRahman", "Mohd Hezizi Abdullah", "Nasyrulaizat Mohd Ali", "Ainaa Ishak", "Shermaine Chua", "NikMuhammad HafizeeNikHassan", "NurllyanaAzman", "AmaninaSumaiyahMutalip", "Evelyn Pillay", "NurYasminBintiAhmadYusra", "Haziq Hanafiah", "HarithFahmiAdilShah", "KishenbabuRamanaidu", "KumaranThiruchelvam", "FathinNurNajatiAbdul Rahman", "KaarrtheekeyanGanesan", "HockChuanYeo", "AshwiniVassekaran", "Nur Ain Syairah binti Yezid", "LALITHAMBIGGAIA/PMANICKAM", "Thnalan Rajendran", "Wei LeongWilliamYoong", "PatriciaAnneMalaSuriakasi", "Mark AngeloGabrial", "Logarooban Renjandran", "Andrea Augustus", "AnantharoobanRRamadas", "Tayallan Anbarasu", "Janice Hywe Theng Lee", "Vasantha KumaryPoongan", "FatinNadiaMohdYunos", "RishaDaleneRaziRavinder", "ChristianaSumithaChandrasekaran", "NURATIQAHBINTIBRAHIM", "ThilaganSanthiraSegaram", "NurulAimanAzman", "Putra Zainudin", "ShafareenaFatah", "FarhanaHanumBinti Mustafa", "Azimah Rahman", "SitiSarhaJehanBintiAbRashid", "Siti Hajar Najwa Jamaludin", "ShaaliniRamesh", "EzzatiSyazwaniElias", "SyahirdaMohammad", "AhmadQusyairiMohamedKamal", "MohamadAzmi FikriKhairudin", "Ammarin Nilsawat", "Soon Choy Lee", "TzeChenLiew", "SanjnaKumari RosanKumar", "AinaMohdSukarno", "Tashvini Sri Nagendran", "AimanNajmi MatRosani", "Wan Nurzainy Wan Ahmad", "Maulika Rao", "Siti Afiqa", "NorAmy Fasha Fasha Binti Zamri", "NurAziraBinti Haslin", "DanishkumarChandraSekera", "EngLeong Lee", "Kok Loong Yong", "Muhamad Rasydan Md Arshad", "Kenneth Zhi Sheng Yeo", "Lip Pin Lim", "MasturinaMansor", "Muhammad Syahmi Bin Mohd Yazid", "Siti Nurfatin Izzaty Izaham", "Anees Ayshah Ayub", "Subashini NairAPKasinathan", "Muhammad Syaiful Khusyairi Affandi Low", "AhmadSyafiqBinMohdRidza", "Aida Afiqah Zakaria", "Zhi Ni Song", "RaymundJosephHernandezSuaverdez", "VishnuVarthanKrishnanraw", "SravanKrsnaRaoVenkatasamraRao", "HaarishNairA/LMohanaKrishnan", "DarrenChoo", "Leermal Kumar Muniandy", "LorenaBueallaPriMartin", "Nuradren Binti Zulkepli", "Iqmal FahmyBinAhmadKamal", "AbdinShakirinAbd Halim", "Angie Kui Foong Yong", "MohdNazriBinOmar", "NurAfiniAhmad Afandi", "AmirHafizKokBinNurAminKok", "MuhammadFahiminKamaruddin", "ThibanKumarJayakumaran", "Muhammad Asraf MohdRamli", "DivyamalthiGunaseelan", "Nur Atiqah Binti Kamal", "Dimah Nordin", "Muhammad Ikhwan Khairuddin", "Darwisyah Rusli", "KhairulDanialBinKhairulAzharNeo", "Hsiao Lin Choo", "MuhammadEzryMuhamadRizal", "NikNurAqilahNikAbdulAziz", "MuhammadJamalAbdulRasid", "Ryan Yip Jin Wong", "Brendon Lim", "Wei Liang Tan", "Keith Guo Er Ong", "IMANUELTITARNUGROHO", "NorhasnatashaHasnan", "MahanumBinti Hashim", "Mohaniss Ragunathan", "Balprit Ghuman Singh", "Thurga Dewi Sangra", "Kwang Yau Darryl Wong", "Khee Hong Ng", "FaizulRadziArshad", "Muhammad Fakhrulghazi Mohd Fouad", "Piriyaankha AP RJaya", "AbdulAzizZainuddin", "FarhanAmmarMohdAbdulPatah", "NoorAshikinNaemat", "Amer Zabir", "Batrisyia Ain Mazjeffruddin", "NavaneethaKrishnaNadarSivasubramaniam", "EbadussolihinBinIsmail", "Kin Cheng Lee", "SitiFatimahOmar", "ljlal Hakkim Mohd Aziz", "MohammadAimanBinRazak", "DharshainiAPJamesnathan", "TimothyKhengKooi Lim", "Kartini Ganesan", "Weng Woi Foong", "SelinaBintiIhsanulWildan", "Say Chuan Vincent Tan", "AaronSelvaraj Laurence", "Vikram Mohan", "Arishah Ariffin", "Noor SuhailaKhamis", "NurAliessaBintiAzizulRahman", "MuhammadZaimAzminRoslan", "Wan Huey Tan", "LeonardValentineGunsud", "Brandon Billy Majin", "SakinahBinti Mazlan", "Faiz Ashraf", "PresantS", "RhushinieRavikkumar", "ShiromiJayatilake", "MuhammadKhairuzzamanBinMatAbas", "MuhammadDanialAbdul Mutalib", "HanimMunirahMohamad", "Nursyahida Binti Muhammad Faizal Alvin", "Nurul HanisMohd Hashim", "Muhammad Azim Noryushan", "Leong Dickmond", "Chai Yoon Lee", "JecelynBeiCheeYeen", "Heng Way Ong", "EdelynNatashaBintiNorEzielAzram", "Nur AtiqahBaharom", "SitiNurulnasyraAthiraBintiAzman", "NurHazwaniAhmadHalil", "Jun Meng Tan", "KhairunNabilahAmran", "Manoj ShankarRavi", "ChristopherBaron Loyola", "Yoke Ying Choy", "ThineshKumarRajan", "AishathShanmaAhmed", "Crystal PhilomenaPak Hyui Chan", "Alana Atkinson", "VinodGanesan", "KishenShanthanA/LJegathes", "PremChandraRamachandalan", "NurAimanNadiahMohammedGhafar", "MIzzat Roslan", "Mei Peng Ho", "Nursyafi Izzati Binti Zaini", "Mabel Man", "Yee Sing Tan", "AidaKhaliliGarkani", "NurDayanaAzamAidid", "lan Cheng Lye Tan", "Muhammad AqilAmani Bin AhmadSharidan", "Gwendolyn Hui Kiang Voon", "KalaivaniKrishnan", "Kenny Yuan Hong Lee", "FarhanZulkeflee", "Sze Ning Soh", "NoorHazzelyaBinti NorHashim", "Chia Qian Chan", "Muhamad NurAimanbin Zainudin", "Leong Hoe Sim", "MuhammadDzulkarnaenShamsuddin", "Basirah Bahari", "JoselynLee", "Chee Meng Mak", "Jaspreet Kaur Amarjit Singh", "FathimathShahmaAhmed", "MuhammdAkmalRidzwan", "JasmineChristinaSim", "Ali Raja Baharudin", "Faqihah Abdul", "HervishwaranSivappragasam", "Fong Jia Khong", "Amar ZarifBinAzamin", "Mohamed ZainiBinMohamedRazalli", "Muhammad Rafiq Abdul Aziz", "Muhd ImanFitri BinBujang", "AaronEzraRichardLeninRichard", "Nurul ShafiniBasirum", "Melissa Wales", "SuhaidiBinIsmail", "Wei Ying Chow", "Muhamad Zulhafiz Bin Zaini", "Ahmad Fariz Azini", "Faiq Amin", "Wei-Sheng Thee", "AmienAshraf Suhaimi", "Muhamad Helmi Hambal", "lanNicholasBlaydes", "Syamimi AbdHamid", "Thinesh Raj Gobal", "Arwa Zulkifli", "GaneesanManiam", "Tengku Ahmad Farid Halim", "ChongKeat Khor", "TuanShahrulFaizalBinTuanYusoff", "Nur Ain Nasirah Zamri", "Yoong Wei Chong", "NurinNazwaElias", "NurArieshaIzzatiAdnan", "NurainMohd Zamri", "ShaanthiniRJayaKumar", "MohdHairulAzminMohdHanif", "WanMohamad FarisBinWanMohamed", "HafrizKamalBinSharuddin", "Lai Yoong Mok", "Faralynne Affandy", "Thayalan Subra", "NurSolehaNikAbdullah", "Lay Chin Teo", "BraydenMatthewJalleh", "FranklinNavenWinn", "Minoshini Shamala Thevi Paidi Taly", "Muhammad Naqib Zulkifli", "MuhamadAlimSafwanBinAhmad", "NoorAtiqahBinti Zainudin", "Shanthinia/pSivanandan", "Ariel Chin", "AsnanAhmadzon", "Thanu Tanggavel", "Latch Moghan", "Anne Linggoh", "Intan Nurzetty", "Kay Ti Ong", "Zainal Razali", "NishaVirammusa", "NURELYANABATRISHIABINTIMOHDNAZRI", "Siti NurFarihahAbdul Rani", "Nur Syuhada Suzamri", "Suganyaa Chandran", "NurAinAdriana Zulfiqar", "NeyshaaMahesvaran", "Megan ChenA", "FADILAHMOHDALI", "Samantha", "Abdeen Zamri", "Faris Syed Mohd Puad", "ImranBinAinolRazman", "Melissa Choo Su Ling", "Manjeet Kaur", "Siti Khadijah Baharuddin", "ShahiraRoslan", "MahathirAfandi", "Steven Ooi", "Azira Haslin", "Nor Amy Zamri", "NoorshamimiBtHalimShah", "April Tan", "Wai Kit Yong", "SteveAdam", "Puteri Nurfirdausul AyunieBinti MohdKhaidir", "Bryan Lee", "bryan pau", "Muhammad Asyraf Nordin", "Muhammad AzizanBinAzman", "DevikaJayapal", "Alya Humaira Binti Ahmad Shukri", "Muhammad DanialBinAmran", "Ernest Tipa", "Min Yue Chai", "KazBalakrishnan", "Nicholas Lee", "FariqYosman", "Bryan Argon", "SarahZamahari", "Hui Aw Yang", "Rachel Ng", "Tommy Tay", "AdilahAdli", "HazwaniBintiZahari", "MohamadHasanBinMohamad Husaini"];
+  const ROW = 72, VIEW = 360, CENTER = (VIEW - ROW) / 2; // centre band = 144px
+  const TIER_ORDER = ['Grand Prize', 'Gold', 'Silver', 'Bronze'];
+  const TIER_CLS = {'Grand Prize':'t-grand','Gold':'t-gold','Silver':'t-silver','Bronze':'t-bronze'};
+  const PRIZES = [
+    {name:'Apple iPhone 17 256GB', tier:'Grand Prize', qty:1},
+    {name:'55" Crystal UHD U8000H 4K Samsung Vision AI Smart TV (2026)', tier:'Gold', qty:1},
+    {name:'Galaxy Tab S10 Lite', tier:'Silver', qty:2},
+    {name:'Insta360 GO 3S', tier:'Silver', qty:1},
+    {name:'Dreame F20 Robot Vacuum', tier:'Bronze', qty:2},
+    {name:'Westin Hotel KL, 1 night stay incl breakfast for 2', tier:'Bronze', qty:4},
+    {name:'Klook Travel E-voucher', tier:'Bronze', qty:4},
+    {name:'Touch n Go Voucher', tier:'Bronze', qty:4},
+    {name:'AEON Cash Voucher', tier:'Bronze', qty:8}
+  ];
+  const TOTAL_PRIZES = PRIZES.reduce((s,p)=>s+p.qty,0);
+  const CONFETTI_COLOURS = ['#ff2e88','#22f0ff','#ffd166','#ff9a3c','#b56cff','#ffffff'];
+
+  const $ = id => document.getElementById(id);
+  const key = n => n.toLowerCase();
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  let state = {entries: [], winners: [], sound: true};
+  let selectedPrizeIdx = -1;
+  let spinning = false;
+
+  /* ---------- Storage ---------- */
+  function load(){
+    try{
+      const s = JSON.parse(localStorage.getItem(KEY));
+      if(s && Array.isArray(s.entries)){
+        state.entries = s.entries.filter(x => typeof x === 'string');
+        state.winners = Array.isArray(s.winners) ? s.winners : [];
+        state.sound = s.sound !== false;
+      }
+    }catch(e){}
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+  }
+
+  /* ---------- Draw model ---------- */
+  function drawnKeys(){ return new Set(state.winners.map(w => key(w.name))); }
+  function pool(){
+    const d = drawnKeys();
+    return state.entries.filter(n => !d.has(key(n)));
+  }
+  function remaining(i){
+    return PRIZES[i].qty - state.winners.filter(w => w.prizeIdx === i).length;
+  }
+  function firstAvailablePrize(){
+    for(let i = 0; i < PRIZES.length; i++) if(remaining(i) > 0) return i;
+    return -1;
+  }
+  function fmtTime(iso){
+    try{
+      return new Date(iso).toLocaleString('en-GB', {timeZone:'Asia/Kuala_Lumpur', day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    }catch(e){ return iso; }
+  }
+
+  /* ---------- Entries ---------- */
+  function addNames(list, allowDup){
+    const existing = new Set(state.entries.map(key));
+    let added = 0, dup = 0;
+    list.forEach(raw => {
+      const n = String(raw).trim().replace(/\s+/g, ' ').slice(0, 80);
+      if(!n) return;
+      if(!allowDup && existing.has(key(n))){ dup++; return; }
+      existing.add(key(n));
+      state.entries.push(n);
+      added++;
+    });
+    if(added || dup){
+      save(); refreshIdle(); render();
+      toast('Added ' + added + ' name' + (added === 1 ? '' : 's') + (dup ? ', ' + dup + ' duplicate' + (dup === 1 ? '' : 's') + ' skipped' : ''));
+    }
+    return added;
+  }
+  function removeEntryAt(i){
+    state.entries.splice(i, 1);
+    save(); refreshIdle(); render();
+  }
+
+  /* ---------- Rendering ---------- */
+  function render(){
+    const p = pool();
+    const total = state.entries.length;
+    $('statTotal').textContent = total;
+    $('statPool').textContent = p.length;
+    $('statDrawn').textContent = total - p.length;
+    $('poolNote').textContent = p.length + ' name' + (p.length === 1 ? '' : 's') + ' on the wheel';
+
+    renderEntries();
+    renderPrizes();
+    renderWinners();
+    renderNow();
+    updateSpinBtn();
+  }
+
+  function renderEntries(){
+    const q = $('search').value.trim().toLowerCase();
+    const d = drawnKeys();
+    let html = '';
+    state.entries.forEach((n, i) => {
+      if(q && !n.toLowerCase().includes(q)) return;
+      const isD = d.has(key(n));
+      html += '<li class="' + (isD ? 'drawn' : '') + '"><span class="n">' + esc(n) + '</span>' +
+              '<span>' + (isD ? '<span class="tag-drawn">Drawn</span>' : '') +
+              '<button class="x" data-i="' + i + '" title="Remove entry" aria-label="Remove ' + esc(n) + '">&times;</button></span></li>';
+    });
+    if(!html) html = '<li class="empty">' + (state.entries.length ? 'No matches' : 'No entries yet. Add names to begin.') + '</li>';
+    $('entryList').innerHTML = html;
+  }
+
+  function renderPrizes(){
+    let html = '';
+    TIER_ORDER.forEach(tier => {
+      const idxs = PRIZES.map((p, i) => i).filter(i => PRIZES[i].tier === tier);
+      if(!idxs.length) return;
+      html += '<div class="group-title">' + tier + '</div>';
+      idxs.forEach(i => {
+        const p = PRIZES[i];
+        const rem = remaining(i);
+        const cls = ['prize', i === selectedPrizeIdx ? 'active' : '', rem <= 0 ? 'done' : ''].join(' ').replace(/\s+/g, ' ');
+        html += '<div class="' + cls + '" data-i="' + i + '" role="button" tabindex="0">' +
+                '<div><div class="prize-name">' + esc(p.name) + '</div>' +
+                '<div class="prize-meta">' + rem + ' of ' + p.qty + ' left</div></div>' +
+                '<span class="tier ' + TIER_CLS[tier] + '">x' + p.qty + '</span></div>';
+      });
+    });
+    $('prizeList').innerHTML = html;
+    $('prizeSummary').textContent = state.winners.length + ' / ' + TOTAL_PRIZES + ' awarded';
+  }
+
+  function renderWinners(){
+    const tb = $('winTable');
+    if(!state.winners.length){
+      tb.innerHTML = '<tr><td colspan="5" class="empty">No winners yet</td></tr>';
+      return;
+    }
+    tb.innerHTML = state.winners.map((w, i) => {
+      const p = PRIZES[w.prizeIdx];
+      return '<tr><td>' + (i + 1) + '</td><td>' + esc(p.name) + '</td>' +
+             '<td><span class="tier ' + TIER_CLS[p.tier] + '">' + p.tier + '</span></td>' +
+             '<td><b>' + esc(w.name) + '</b></td><td>' + fmtTime(w.time) + '</td></tr>';
+    }).reverse().join('');
+  }
+
+  function renderNow(){
+    const el = $('nowPrize');
+    if(selectedPrizeIdx < 0){
+      el.textContent = pool().length || state.entries.length ? 'All prizes have been drawn' : 'Add entries to begin';
+      return;
+    }
+    const p = PRIZES[selectedPrizeIdx];
+    el.innerHTML = esc(p.name) + ' <span class="tier ' + TIER_CLS[p.tier] + '">' + p.tier + '</span>' +
+                   '<span class="secondary small">(' + remaining(selectedPrizeIdx) + ' left)</span>';
+  }
+
+  function updateSpinBtn(){
+    const can = !spinning && selectedPrizeIdx >= 0 && remaining(selectedPrizeIdx) > 0 && pool().length > 0;
+    $('spinBtn').disabled = !can;
+    $('spinBtn').textContent = spinning ? 'Spinning...' : 'Spin';
+  }
+
+  /* ---------- Wheel ---------- */
+  function renderStrip(items){
+    $('strip').innerHTML = items.map(n => '<div class="item">' + esc(n) + '</div>').join('');
+    $('strip').style.transform = 'translateY(' + CENTER + 'px)';
+  }
+  function idleStrip(){
+    const p = pool();
+    $('window').classList.remove('won', 'spinning');
+    if(!p.length){
+      renderStrip([state.entries.length ? 'No names left in the draw' : 'Add names to begin']);
+      return;
+    }
+    const items = [];
+    for(let i = 0; i < 12; i++) items.push(p[Math.floor(Math.random() * p.length)]);
+    renderStrip(items);
+  }
+  function refreshIdle(){ if(!spinning) idleStrip(); }
+
+  function spin(){
+    if(spinning) return;
+    if(selectedPrizeIdx < 0 || remaining(selectedPrizeIdx) <= 0){
+      selectedPrizeIdx = firstAvailablePrize();
+      render();
+    }
+    if(selectedPrizeIdx < 0){ toast('All prizes have been drawn. Use Reset draw to start again.'); return; }
+    const p = pool();
+    if(!p.length){ toast('No names left in the draw. Add entries or reset the draw.'); return; }
+
+    const prizeIdx = selectedPrizeIdx;
+    const winnerName = p[Math.floor(Math.random() * p.length)];
+    const N = 64, TARGET = N - 6;
+    const items = [];
+    for(let i = 0; i < N; i++) items.push(p[Math.floor(Math.random() * p.length)]);
+    items[TARGET] = winnerName;
+    renderStrip(items);
+
+    const win = $('window');
+    win.classList.remove('won');
+    win.classList.add('spinning');
+    spinning = true;
+    updateSpinBtn();
+
+    const dur = 5200 + Math.random() * 800;
+    const t0 = performance.now();
+    let lastCell = 0, lastTick = 0;
+
+    function frame(now){
+      const t = Math.min(1, (now - t0) / dur);
+      const pos = (1 - Math.pow(1 - t, 4)) * TARGET;
+      $('strip').style.transform = 'translateY(' + (CENTER - pos * ROW) + 'px)';
+      const cell = Math.floor(pos);
+      if(cell !== lastCell){
+        lastCell = cell;
+        if(now - lastTick > 60 && t < 1){ lastTick = now; tick(); }
+      }
+      if(t < 1) requestAnimationFrame(frame);
+      else finishSpin(winnerName, prizeIdx, TARGET);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function finishSpin(name, prizeIdx, target){
+    spinning = false;
+    const win = $('window');
+    win.classList.remove('spinning');
+    win.classList.add('won');
+    const node = $('strip').children[target];
+    if(node) node.classList.add('target');
+
+    state.winners.push({name: name, prizeIdx: prizeIdx, time: new Date().toISOString()});
+    if(remaining(prizeIdx) <= 0) selectedPrizeIdx = firstAvailablePrize();
+    save();
+    render();
+    celebrate();
+    fanfare();
+    showWinner(name, prizeIdx);
+  }
+
+  /* ---------- Winner modal ---------- */
+  function showWinner(name, prizeIdx){
+    const p = PRIZES[prizeIdx];
+    $('wName').textContent = name;
+    $('wPrize').textContent = p.name;
+    $('wTier').textContent = p.tier;
+    $('wTier').className = 'tier ' + TIER_CLS[p.tier];
+    $('overlay').hidden = false;
+    $('closeWin').focus();
+  }
+  function closeWin(){ $('overlay').hidden = true; }
+
+  /* ---------- Celebration: confetti ---------- */
+  const cv = $('confetti'), ctx = cv.getContext('2d');
+  let parts = [], animId = null;
+  function resizeCanvas(){ cv.width = innerWidth; cv.height = innerHeight; }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  function burst(x, y, count){
+    for(let i = 0; i < count; i++){
+      parts.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 14,
+        vy: -Math.random() * 16 - 4,
+        g: 0.35,
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.3,
+        w: 6 + Math.random() * 6,
+        h: 10 + Math.random() * 6,
+        c: CONFETTI_COLOURS[Math.floor(Math.random() * CONFETTI_COLOURS.length)],
+        life: 0,
+        ttl: 180 + Math.random() * 120
+      });
+    }
+    if(!animId) animId = requestAnimationFrame(tick2);
+  }
+  function tick2(){
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    parts = parts.filter(p => p.life < p.ttl && p.y < cv.height + 40);
+    for(const p of parts){
+      p.vy += p.g; p.vx *= 0.99; p.vy *= 0.99;
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life++;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = Math.max(0, 1 - p.life / p.ttl);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+    if(parts.length) animId = requestAnimationFrame(tick2);
+    else { animId = null; ctx.clearRect(0, 0, cv.width, cv.height); }
+  }
+  function celebrate(){
+    const t0 = performance.now();
+    burst(innerWidth * 0.15, innerHeight * 0.95, 140);
+    burst(innerWidth * 0.85, innerHeight * 0.95, 140);
+    const timer = setInterval(() => {
+      if(performance.now() - t0 > 2600){ clearInterval(timer); return; }
+      burst(Math.random() * innerWidth, innerHeight * 0.25, 28);
+    }, 350);
+  }
+
+  /* ---------- Sound (optional, Web Audio) ---------- */
+  let actx = null;
+  function tone(freq, start, dur, type, vol){
+    if(!state.sound) return;
+    try{
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = actx.currentTime + start;
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || 'triangle';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol || 0.15, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(actx.destination);
+      o.start(t); o.stop(t + dur + 0.05);
+    }catch(e){}
+  }
+  function tick(){ tone(1800, 0, 0.03, 'square', 0.03); }
+  function fanfare(){
+    [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.12, 0.4, 'triangle', 0.15));
+    tone(1047, 0.5, 0.9, 'triangle', 0.12);
+  }
+
+  /* ---------- Toast ---------- */
+  let toastTimer = null;
+  function toast(msg){
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  /* ---------- Two-click confirm for destructive actions ---------- */
+  function armed(btn, action){
+    if(!btn.dataset.label) btn.dataset.label = btn.textContent;
+    if(btn.dataset.armed){
+      clearTimeout(btn._t);
+      btn.dataset.armed = '';
+      btn.textContent = btn.dataset.label;
+      action();
+      return;
+    }
+    btn.dataset.armed = '1';
+    btn.textContent = 'Click again to confirm';
+    btn._t = setTimeout(() => { btn.dataset.armed = ''; btn.textContent = btn.dataset.label; }, 3000);
+  }
+
+  function resetDraw(){
+    state.winners = [];
+    selectedPrizeIdx = firstAvailablePrize();
+    save(); refreshIdle(); render();
+    toast('Draw reset. All names and prizes are restored.');
+  }
+  function clearAll(){
+    state.entries = []; state.winners = [];
+    selectedPrizeIdx = firstAvailablePrize();
+    save(); refreshIdle(); render();
+    toast('All entries and winners cleared.');
+  }
+  function loadAttendees(){
+    state.entries = ATTENDEES.slice(); state.winners = [];
+    selectedPrizeIdx = firstAvailablePrize();
+    save(); refreshIdle(); render();
+    toast('Restored ' + ATTENDEES.length + ' registered attendees.');
+  }
+
+  /* ---------- Events ---------- */
+  $('addBtn').addEventListener('click', () => {
+    const v = $('nameInput').value;
+    if(!v.trim()){ toast('Type a name first.'); return; }
+    addNames([v], true);
+    $('nameInput').value = '';
+    $('nameInput').focus();
+  });
+  $('nameInput').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); $('addBtn').click(); } });
+  $('bulkBtn').addEventListener('click', () => {
+    const text = $('bulk').value;
+    if(!text.trim()){ toast('Paste some names first.'); return; }
+    addNames(text.split(/\r?\n/));
+    $('bulk').value = '';
+  });
+  $('search').addEventListener('input', renderEntries);
+  $('entryList').addEventListener('click', e => {
+    const b = e.target.closest('.x');
+    if(b) removeEntryAt(+b.dataset.i);
+  });
+  $('prizeList').addEventListener('click', e => {
+    const el = e.target.closest('.prize');
+    if(!el || spinning) return;
+    const i = +el.dataset.i;
+    if(remaining(i) <= 0){ toast('All of this prize has been drawn.'); return; }
+    selectedPrizeIdx = i;
+    render();
+  });
+  $('prizeList').addEventListener('keydown', e => {
+    if(e.key === 'Enter' && e.target.classList.contains('prize')) e.target.click();
+  });
+  $('spinBtn').addEventListener('click', spin);
+  $('resetBtn').addEventListener('click', e => { if(!spinning) armed(e.currentTarget, resetDraw); });
+  $('clearBtn').addEventListener('click', e => {
+    if(!state.entries.length){ toast('There are no entries to clear.'); return; }
+    armed(e.currentTarget, clearAll);
+  });
+  $('reloadBtn').addEventListener('click', e => armed(e.currentTarget, loadAttendees));
+  $('csvBtn').addEventListener('click', () => {
+    if(!state.winners.length){ toast('No winners to export yet.'); return; }
+    const rows = [['#', 'Prize', 'Tier', 'Winner', 'Drawn at (MYT)']];
+    state.winners.forEach((w, i) => {
+      const p = PRIZES[w.prizeIdx];
+      rows.push([i + 1, p.name, p.tier, w.name, fmtTime(w.time)]);
+    });
+    const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8'}));
+    a.download = 'lucky-draw-winners.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+  $('closeWin').addEventListener('click', closeWin);
+  $('overlay').addEventListener('click', e => { if(e.target === $('overlay')) closeWin(); });
+
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && !$('overlay').hidden){ closeWin(); return; }
+    if(e.code !== 'Space' || !$('overlay').hidden) return;
+    const t = e.target;
+    if(t.matches && t.matches('input,textarea,select,[contenteditable]')) return;
+    if(t.tagName === 'BUTTON' && t.id !== 'spinBtn') return;
+    e.preventDefault();
+    spin();
+  });
+
+  /* ---------- Init ---------- */
+  load();
+  if(!localStorage.getItem(KEY)) state.entries = ATTENDEES.slice();
+  selectedPrizeIdx = firstAvailablePrize();
+  render();
+  idleStrip();
+})();
+</script>
+<style id="neon-overrides">
+/* Final overrides: the platform base stylesheet sets white backgrounds and dark text on these elements, which load after the page styles. */
+html,body{background:#0F4C5C !important;background-color:#0F4C5C !important;color:#F5FBFC !important;color-scheme:dark}
+body{background-image:none !important}
+h1,h2,h3,h4,h5,h6{color:#F5FBFC !important}
+h2{color:#9EF3FF !important}
+p,li,td,th,small,span,label{color:inherit}
+th{background:linear-gradient(90deg,#0A2E38,#14606F) !important;color:#FFFFFF !important}
+td{color:#F5FBFC !important;border-bottom:1px solid rgba(255,255,255,.07) !important}
+thead{background:transparent !important}
+tbody tr:hover{background:rgba(158,243,255,.06) !important}
+.secondary,.label{color:#CFE8EC !important}
+.card,.subtle-bg,.panel{background:rgba(6,36,46,.86) !important;color:#F5FBFC !important}
+a{color:#9EF3FF !important}
+blockquote,pre,code{background:rgba(0,0,0,.3) !important;color:#F5FBFC !important}
+.btn{color:#9EF3FF !important;background-color:transparent}
+.btn.primary{color:#1a0020 !important;background:linear-gradient(90deg,#ff2e88,#ff9a3c) !important}
+.btn.danger{color:#FF9FCB !important}
+.btn.ghost{color:#D7BBFF !important}
+input,textarea{background:rgba(0,0,0,.3) !important;color:#F5FBFC !important}
+</style>
+</body>
+</html>
